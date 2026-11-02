@@ -31,6 +31,7 @@ h1 span{color:#9775fa}
 #topbar button{padding:5px 10px;font-size:13px}
 #opps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0}
 .seat{position:relative;background:#fff;border-radius:14px;padding:8px 12px;min-width:120px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.08);border:3px solid transparent;transition:.2s}
+.many .seat{min-width:100px;padding:5px 8px}.many .seat .nm{font-size:13px}.many .hearts{font-size:13px}.many .small{font-size:11px}
 .seat.turn{border-color:#f76707}
 .seat.dead{opacity:.35;filter:grayscale(1)}
 .seat.targetable{border-color:#e03131;cursor:pointer;animation:pulse 1s infinite}
@@ -85,7 +86,7 @@ h1 span{color:#9775fa}
 @keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%)}}
 .rules{text-align:left;font-size:14px;line-height:1.6;max-height:70vh;overflow-y:auto}
 .rules .card{display:inline-flex;vertical-align:middle;margin:3px;cursor:default}
-@media(max-width:600px){#center{flex-direction:column}.card{width:70px;height:104px}.card .w{font-size:14px}.card .d{font-size:8.5px}#flash{font-size:38px}.seat{min-width:96px;padding:6px 8px}}
+@media(max-width:600px){#center{flex-direction:column}.many .seat{min-width:78px;padding:4px 5px}#opps{gap:5px}.card{width:70px;height:104px}.card .w{font-size:14px}.card .d{font-size:8.5px}#flash{font-size:38px}.seat{min-width:96px;padding:6px 8px}}
 </style>
 </head>
 <body>
@@ -161,7 +162,7 @@ const CARD = {
 };
 const COMBO_WORD = 'あの？みてみて～';
 const DECK_BASE = {mite:14, ano:8, shinai:7, chigau:5, yamete:4, moddo:2, kore:3};
-const MAXHP=4, START_HAND=5, HAND_MAX=8, REACT_SEC=12, TURN_SEC=60;
+const MAXP=8, MAXHP=4, START_HAND=5, HAND_MAX=8, REACT_SEC=12, TURN_SEC=60;
 const PREFIX='goroku-battle-v1-';
 const STAMPS=['ano','chigau','shinai','mite','yamete','kore','moddo'];
 
@@ -358,7 +359,7 @@ function handleIntent(pid,m){
   const host=pid===myPid;
   switch(m.a){
     case 'stamp': if(STAMPS.includes(m.s)) fx({k:'say',pid,s:m.s,stamp:true}); return;
-    case 'addbot': if(host&&G.phase!=='play'&&G.players.length<6){ const names=['CPUたろう','CPUはなこ','CPUじろう','CPUさくら','CPUごろう']; G.players.push({id:'b'+(++botSeq),name:names[(botSeq-1)%names.length],bot:true,hand:[],hp:MAXHP,alive:true}); } break;
+    case 'addbot': if(host&&G.phase!=='play'&&G.players.length<MAXP){ const names=['CPUたろう','CPUはなこ','CPUじろう','CPUさくら','CPUごろう','CPUゆず','CPUりんご']; G.players.push({id:'b'+(++botSeq),name:names[(botSeq-1)%names.length],bot:true,hand:[],hp:MAXHP,alive:true}); } break;
     case 'rmbot': if(host&&G.phase!=='play'){ const i=G.players.map(x=>x.bot).lastIndexOf(true); if(i>=0) G.players.splice(i,1);} break;
     case 'start': if(host&&G.phase!=='play') startGame(); break;
     case 'lobby': if(host&&G.phase==='over'){ G.phase='lobby'; G.players=G.players.filter(isConn); } break;
@@ -418,7 +419,7 @@ function setupHost(name,online){
           let p=G.players.find(x=>!x.bot&&x.id!==myPid&&x.name===nm&&!conns[x.id]&&G.phase!=='lobby');
           if(!p){
             if(G.phase!=='lobby'){ c.send({type:'err',msg:'ゲーム中のため参加できません'}); return; }
-            if(G.players.length>=6){ c.send({type:'err',msg:'満員です（最大6人）'}); return; }
+            if(G.players.length>=MAXP){ c.send({type:'err',msg:`満員です（最大${MAXP}人）`}); return; }
             while(G.players.some(x=>x.name===nm)) nm+='＊';
             p={id:'p'+(++pidSeq),name:nm,hand:[],hp:MAXHP,alive:true}; G.players.push(p); addLog(`👋 ${nm} が参加`);
           }else addLog(`🔌 ${nm} が再接続`);
@@ -479,6 +480,7 @@ function renderLobby(){
   const h=V.me===V.host;
   $('hostCtl').style.display=h?'':'none'; $('guestWait').style.display=h?'none':'';
   $('btnStart').disabled=V.players.length<2;
+  $('btnAddBot').disabled=V.players.length>=MAXP;
   $('btnStart').textContent=V.players.length<2?'あと1人以上必要':'ゲーム開始（'+V.players.length+'人）';
 }
 function renderGame(){
@@ -491,6 +493,7 @@ function renderGame(){
   // opponents
   const meIdx=V.players.findIndex(p=>p.id===V.me);
   const order=V.players.slice(meIdx+1).concat(V.players.slice(0,meIdx));
+  $('opps').classList.toggle('many',order.length>4);
   $('opps').innerHTML=order.map(p=>{
     const cls=['seat']; if(p.id===V.turn) cls.push('turn'); if(!p.alive) cls.push('dead'); if(mode==='target'&&p.alive) cls.push('targetable');
     return `<div class="${cls.join(' ')}" id="seat-${p.id}" data-pid="${p.id}"><div class="nm">${esc(p.name)}${p.id===V.host?' 👑':''}</div><div class="hearts">${hearts(p.hp)}</div><div class="small">手札 ${p.n}枚${p.bot?' ・CPU':''}${p.skip?' ・💤次休み':''}${!p.conn?' ・切断中':''}</div></div>`;
@@ -579,7 +582,7 @@ function beep(f=600,d=.08,type='sine'){
 function speak(text,pid){
   if(!voiceOn||!window.speechSynthesis) return;
   const u=new SpeechSynthesisUtterance(text); u.lang='ja-JP'; u.rate=1.15;
-  const i=V?Math.max(0,V.players.findIndex(p=>p.id===pid)):0; u.pitch=[1,1.5,.7,1.25,.85,1.7][i%6];
+  const i=V?Math.max(0,V.players.findIndex(p=>p.id===pid)):0; u.pitch=[1,1.5,.7,1.25,.85,1.7,1.1,.6][i%8];
   speechSynthesis.speak(u);
 }
 function seatEl(pid){ return pid===V?.me?$('me'):$('seat-'+pid); }
