@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>語録バトル ちがうが？</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:"Hiragino Maru Gothic ProN","M PLUS Rounded 1c","Yu Gothic",sans-serif;background:linear-gradient(160deg,#fff4e6,#e7f5ff 60%,#f3f0ff);color:#333;min-height:100vh;overflow-x:hidden}
+button{font-family:inherit;font-weight:bold;border:none;border-radius:12px;padding:10px 16px;font-size:15px;cursor:pointer;background:#495057;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.25);transition:transform .08s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+button:disabled{opacity:.4;cursor:default}
+button.pri{background:#f76707}
+button.sub{background:#adb5bd}
+input{font-family:inherit;font-size:17px;padding:10px;border-radius:10px;border:2px solid #ced4da;width:100%}
+.screen{display:none}
+.screen.on{display:block}
+.box{max-width:460px;margin:30px auto;background:#fff;border-radius:20px;padding:24px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+h1{text-align:center;margin:0 0 4px;font-size:34px;letter-spacing:2px}
+h1 span{color:#9775fa}
+.sub-title{text-align:center;color:#868e96;margin-bottom:18px;font-size:13px}
+.row{display:flex;gap:8px;margin:10px 0}
+.row>*{flex:1}
+.err{color:#e03131;font-size:14px;min-height:20px;text-align:center}
+.code{font-size:44px;text-align:center;letter-spacing:8px;font-weight:bold;color:#f76707}
+.plist div{padding:8px 12px;background:#f1f3f5;border-radius:10px;margin:6px 0;display:flex;justify-content:space-between}
+/* game */
+#game{max-width:1000px;margin:0 auto;padding:8px;display:flex;flex-direction:column;min-height:100vh}
+#topbar{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#666;gap:6px}
+#topbar button{padding:5px 10px;font-size:13px}
+#opps{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0}
+.seat{position:relative;background:#fff;border-radius:14px;padding:8px 12px;min-width:120px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.08);border:3px solid transparent;transition:.2s}
+.seat.turn{border-color:#f76707}
+.seat.dead{opacity:.35;filter:grayscale(1)}
+.seat.targetable{border-color:#e03131;cursor:pointer;animation:pulse 1s infinite}
+.seat.hit{animation:shake .4s}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(224,49,49,.25)}}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.seat .nm{font-weight:bold}
+.hearts{color:#e64980;font-size:16px;letter-spacing:1px}
+.small{font-size:12px;color:#868e96}
+.bubble{position:absolute;left:50%;top:-8px;transform:translate(-50%,-100%);background:#fff;border:3px solid #333;border-radius:16px;padding:6px 12px;font-weight:bold;font-size:18px;white-space:nowrap;z-index:20;animation:pop .25s ease-out;pointer-events:none}
+.bubble:after{content:"";position:absolute;left:50%;bottom:-11px;margin-left:-8px;border:8px solid transparent;border-top-color:#333}
+.bubble.long{white-space:normal;width:220px;font-size:14px;text-align:center}
+#flash.long{font-size:30px;white-space:normal;width:90vw;text-align:center}
+.bubble.stamp{border-color:#adb5bd;font-size:15px}
+@keyframes pop{from{transform:translate(-50%,-100%) scale(.3)}to{transform:translate(-50%,-100%) scale(1)}}
+#center{flex:1;display:flex;gap:12px;align-items:center;justify-content:center;margin:6px 0}
+#pile{display:flex;gap:10px;align-items:center}
+.deck{width:70px;height:100px;border-radius:10px;background:repeating-linear-gradient(45deg,#748ffc,#748ffc 8px,#5c7cfa 8px,#5c7cfa 16px);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;text-align:center;font-size:13px;box-shadow:0 3px 0 rgba(0,0,0,.2)}
+#mid{flex:1;min-width:260px;max-width:520px;display:flex;flex-direction:column;gap:6px}
+#banner{background:#fff;border-radius:12px;padding:10px;text-align:center;font-weight:bold;min-height:44px}
+#log{background:rgba(255,255,255,.7);border-radius:12px;padding:8px 10px;font-size:13px;height:120px;overflow-y:auto}
+#log div{padding:1px 0;border-bottom:1px dashed #e9ecef}
+#me{position:relative;background:#fff;border-radius:16px;padding:10px;box-shadow:0 -2px 14px rgba(0,0,0,.06);border:3px solid transparent}
+#me.turn{border-color:#f76707}
+#meinfo{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+#hand{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:10px 0;min-height:110px}
+.card{width:84px;height:118px;border-radius:12px;color:#fff;padding:6px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.2);transition:transform .12s;user-select:none;position:relative}
+.card .w{font-size:17px;font-weight:bold;text-align:center;margin-top:18px;text-shadow:0 1px 2px rgba(0,0,0,.25);line-height:1.15}
+.card .d{font-size:9.5px;background:rgba(255,255,255,.9);color:#333;border-radius:6px;padding:3px;line-height:1.25}
+.card .tag{position:absolute;top:5px;left:6px;font-size:10px;background:rgba(0,0,0,.25);border-radius:6px;padding:1px 5px}
+.card .w.long{font-size:11.5px;margin-top:16px;line-height:1.2}.card.mini .w.long{font-size:8.5px;margin-top:14px}
+.card.sel{transform:translateY(-14px);outline:4px solid #212529}
+.card.mini{width:70px;height:100px;cursor:default}
+.card.mini .w{font-size:13px;margin-top:16px}
+.card.mini .d{display:none}
+#actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
+#hint{font-size:14px;color:#495057;text-align:center;min-height:20px}
+#stamps{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0 4px}
+#stamps button{background:#fff;color:#333;border:2px solid #dee2e6;padding:6px 10px;font-size:14px;box-shadow:none}
+.timer{height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;margin-top:6px}
+.timer i{display:block;height:100%;background:#f76707;width:100%}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:12px}
+.overlay.on{display:flex}
+.panel{background:#fff;border-radius:20px;padding:20px;max-width:420px;width:100%;text-align:center;animation:pop2 .2s}
+@keyframes pop2{from{transform:scale(.8)}to{transform:scale(1)}}
+.panel h2{margin:0 0 8px}
+.big{font-size:30px;font-weight:bold;margin:8px 0}
+.rbtns{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.rbtns button{font-size:18px;padding:12px}
+#flash{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);font-size:56px;font-weight:900;color:#fff;-webkit-text-stroke:2px #333;text-shadow:0 4px 0 #333;pointer-events:none;z-index:40;opacity:0;white-space:nowrap}
+#flash.go{animation:flash 1.1s ease-out}
+@keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%)}}
+.rules{text-align:left;font-size:14px;line-height:1.6;max-height:70vh;overflow-y:auto}
+.rules .card{display:inline-flex;vertical-align:middle;margin:3px;cursor:default}
+@media(max-width:600px){#center{flex-direction:column}.card{width:70px;height:104px}.card .w{font-size:14px}.card .d{font-size:8.5px}#flash{font-size:38px}.seat{min-width:96px;padding:6px 8px}}
+</style>
+</head>
+<body>
+
+<!-- タイトル -->
+<div id="title" class="screen on">
+  <div class="box">
+    <h1>語録バトル<br><span>ちがうが？</span></h1>
+    <div class="sub-title">あの？ ／ ちがうが？ ／ しないが？ ／ みてみて～ ／ やめてね</div>
+    <label class="small">なまえ</label>
+    <input id="nameIn" maxlength="10" placeholder="なまえを入力">
+    <div class="row"><button class="pri" id="btnCreate">ルームを作る</button></div>
+    <div class="row"><input id="codeIn" maxlength="4" placeholder="ルームコード" style="text-transform:uppercase"><button id="btnJoin">入る</button></div>
+    <div class="row"><button class="sub" id="btnSolo">ひとりで練習（CPU戦）</button><button class="sub" id="btnRules1">ルール</button></div>
+    <div class="err" id="titleErr"></div>
+  </div>
+</div>
+
+<!-- ロビー -->
+<div id="lobby" class="screen">
+  <div class="box">
+    <div class="small" style="text-align:center">ルームコード</div>
+    <div class="code" id="lobbyCode">----</div>
+    <div class="row"><button class="sub" id="btnCopy">招待リンクをコピー</button></div>
+    <div class="plist" id="plist"></div>
+    <div id="hostCtl">
+      <div class="row"><button class="sub" id="btnAddBot">CPUを追加</button><button class="sub" id="btnRmBot">CPUを減らす</button></div>
+      <div class="row"><button class="pri" id="btnStart">ゲーム開始</button></div>
+    </div>
+    <div id="guestWait" class="small" style="text-align:center">ホストの開始を待っています…</div>
+    <div class="row"><button class="sub" id="btnRules2">ルール</button></div>
+    <div class="err" id="lobbyErr"></div>
+  </div>
+</div>
+
+<!-- ゲーム -->
+<div id="game" class="screen">
+  <div id="topbar"><span id="roomInfo"></span><span><button class="sub" id="btnVoice">🔊 声ON</button> <button class="sub" id="btnRules3">ルール</button></span></div>
+  <div id="opps"></div>
+  <div id="center">
+    <div id="pile"><div class="deck" id="deckEl">山札<br>0</div><div id="discardEl"></div></div>
+    <div id="mid"><div id="banner"></div><div id="log"></div></div>
+  </div>
+  <div id="stamps"></div>
+  <div id="me">
+    <div id="meinfo"></div>
+    <div id="hand"></div>
+    <div id="hint"></div>
+    <div id="actions"></div>
+    <div class="timer" id="turnTimer" style="display:none"><i></i></div>
+  </div>
+</div>
+
+<div class="overlay" id="reactOv"><div class="panel" id="reactPanel"></div></div>
+<div class="overlay" id="overOv"><div class="panel" id="overPanel"></div></div>
+<div class="overlay" id="rulesOv"><div class="panel">
+  <h2>ルール</h2>
+  <div class="rules" id="rulesBody"></div>
+  <div class="row"><button id="btnRulesClose">とじる</button></div>
+</div></div>
+<div id="flash"></div>
+
+<script>
+// ================= 定義 =================
+const CARD = {
+  mite:  {w:'みてみて～', kind:'act', tag:'攻撃', desc:'相手のメンタルに1ダメージ', c:'linear-gradient(160deg,#ff8fb8,#f06595)'},
+  ano:   {w:'あの？',     kind:'act', tag:'攻撃', desc:'相手の手札を1枚ランダムにうばう', c:'linear-gradient(160deg,#ffc078,#fd7e14)'},
+  shinai:{w:'しないが？', kind:'re',  tag:'反応', desc:'自分への行動を無効にする', c:'linear-gradient(160deg,#74c0fc,#1c7ed6)'},
+  chigau:{w:'ちがうが？', kind:'re',  tag:'反応', desc:'行動をそのまま相手にはね返す', c:'linear-gradient(160deg,#b197fc,#7048e8)'},
+  moddo: {w:'もっどりんごゆずりんごゆめのゆずねっとたかた～～～', short:'もっどりんご<br>ゆずりんご<br>ゆめのゆず<br>ねっとたかた<br>～～～', kind:'act', tag:'必殺', desc:'他の全員に1ダメージ（反応不可）。代わりに自分は次の番お休み', c:'linear-gradient(160deg,#ffe066,#f08c00)'},
+  kore:  {w:'これゆずりんごらしい', short:'これ<br>ゆずりんご<br>らしい', kind:'act', tag:'妨害', desc:'相手を1回休みにする', c:'linear-gradient(160deg,#ffd8a8,#e8590c)'},
+  yamete:{w:'やめてね',   kind:'re',  tag:'反応/回復', desc:'反応：無効にする／自分の番：メンタル1回復', c:'linear-gradient(160deg,#8ce99a,#2f9e44)'},
+};
+const COMBO_WORD = 'あの？みてみて～';
+const DECK_BASE = {mite:14, ano:8, shinai:7, chigau:5, yamete:4, moddo:2, kore:3};
+const MAXHP=4, START_HAND=5, HAND_MAX=8, REACT_SEC=12, TURN_SEC=60;
+const PREFIX='goroku-battle-v1-';
+const STAMPS=['ano','chigau','shinai','mite','yamete','kore','moddo'];
+
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const wordOf=k=>k==='combo'?COMBO_WORD:k==='zzz'?'💤 お休み…':CARD[k].w;
+
+// ================= ネット状態 =================
+let isHost=false, myPid=null, roomCode='', peer=null, conn=null, myName='';
+let conns={};          // host: pid -> conn
+let V=null;            // 最新ビュー
+let sel=new Set();
+let localPendDeadline=0, localTurnDeadline=0;
+let voiceOn=true;
+
+// ================= ホスト：ゲーム状態 =================
+let G=null, pidSeq=0, botTimer=null, botSeq=0;
+function freshG(){ return {phase:'lobby', players:[], deck:[], discard:[], turn:0, pending:null, log:[], winner:null, turnDeadline:0, acts:0}; }
+const byId=id=>G.players.find(p=>p.id===id);
+const cur=()=>G.players[G.turn];
+const isConn=p=>p.bot||p.id===myPid||!!conns[p.id];
+const isAuto=p=>p.bot||(!isConn(p));
+function addLog(s){ G.log.push(s); if(G.log.length>80) G.log.shift(); }
+
+function newDeck(n){
+  const m=Math.max(1,Math.ceil(n/3)); const d=[]; let id=0;
+  for(const t in DECK_BASE) for(let i=0;i<DECK_BASE[t]*m;i++) d.push({id:id++,t});
+  return shuffle(d);
+}
+function draw(p,k){
+  for(let i=0;i<k;i++){
+    if(!G.deck.length){
+      if(!G.discard.length) return;
+      G.deck=shuffle(G.discard); G.discard=[]; addLog('🔄 捨て札を山札に戻しました');
+    }
+    p.hand.push(G.deck.pop());
+  }
+}
+function startGame(){
+  G.players=G.players.filter(isConn);
+  if(G.players.length<2) return;
+  G.deck=newDeck(G.players.length); G.discard=[]; G.log=[]; G.winner=null; G.pending=null;
+  G.players.forEach(p=>{p.hp=MAXHP; p.alive=true; p.hand=[]; p.skip=0; draw(p,START_HAND);});
+  G.phase='play'; G.turn=rand(G.players.length);
+  addLog('🎮 ゲーム開始！');
+  beginTurn();
+}
+function beginTurn(){
+  const p=cur(); G.acts=0;
+  if(p.skip>0&&G.players.filter(x=>x.alive).length>1){ p.skip--; addLog(`💤 ${p.name} はお休み`); fx({k:'say',pid:p.id,s:'zzz'}); nextTurn(); return; }
+  draw(p,Math.min(2,HAND_MAX-p.hand.length));
+  G.turnDeadline=Date.now()+TURN_SEC*1000;
+  addLog(`▶ ${p.name} の番`);
+}
+function nextTurn(){
+  let i=G.turn, n=G.players.length;
+  for(let k=0;k<n;k++){ i=(i+1)%n; if(G.players[i].alive) break; }
+  G.turn=i; beginTurn();
+}
+function endTurn(){
+  const p=cur();
+  while(p.hand.length>HAND_MAX){ G.discard.push(p.hand.splice(rand(p.hand.length),1)[0]); }
+  nextTurn();
+}
+function removeCard(p,id){ const i=p.hand.findIndex(c=>c.id===id); if(i<0) return null; const c=p.hand.splice(i,1)[0]; G.discard.push(c); return c; }
+
+function playCards(p,ids,target){
+  if(G.phase!=='play'||G.pending||cur()!==p||!p.alive) return false;
+  if(!Array.isArray(ids)||!ids.length||ids.length>2) return false;
+  const cards=ids.map(id=>p.hand.find(c=>c.id===id));
+  if(cards.some(c=>!c)||new Set(ids).size!==ids.length) return false;
+  const types=cards.map(c=>c.t).sort().join('+');
+  if(types==='yamete'){
+    if(p.hp>=MAXHP) return false;
+    removeCard(p,ids[0]); p.hp++; G.acts++;
+    fx({k:'say',pid:p.id,s:'yamete'});
+    addLog(`💚 ${p.name}「やめてね」→ メンタル1回復`);
+    return true;
+  }
+  if(types==='moddo'){
+    removeCard(p,ids[0]); G.acts++; p.skip=(p.skip||0)+1;
+    fx({k:'say',pid:p.id,s:'moddo'});
+    addLog(`🍎 ${p.name}「${CARD.moddo.w}」→ 全員に1ダメージ！（次の番お休み）`);
+    G.players.forEach(t=>{ if(t!==p&&t.alive) damage(t,1); });
+    afterAction(); return true;
+  }
+  let kind = types==='mite'?'mite': types==='ano'?'ano': types==='ano+mite'?'combo': types==='kore'?'kore': null;
+  if(!kind) return false;
+  const t=byId(target); if(!t||!t.alive||t===p) return false;
+  ids.forEach(id=>removeCard(p,id)); G.acts++;
+  fx({k:'say',pid:p.id,s:kind,to:t.id});
+  addLog(`🗯 ${p.name} → ${t.name}「${wordOf(kind)}」`);
+  const hasRe=t.hand.some(c=>CARD[c.t].kind==='re');
+  G.pending={kind,from:p.id,to:t.id,deadline:Date.now()+(hasRe?REACT_SEC*1000:(1500+rand(2500))),chain:1};
+  return true;
+}
+function react(p,cardId){
+  const pd=G.pending; if(!pd||pd.to!==p.id) return false;
+  const c=p.hand.find(c=>c.id===cardId&&CARD[c.t].kind==='re'); if(!c) return false;
+  removeCard(p,cardId);
+  fx({k:'say',pid:p.id,s:c.t});
+  const f=byId(pd.from);
+  if(c.t==='chigau'){
+    [pd.from,pd.to]=[pd.to,pd.from]; pd.chain++;
+    const nt=byId(pd.to);
+    pd.deadline=Date.now()+(nt.hand.some(c=>CARD[c.t].kind==='re')?REACT_SEC*1000:(1500+rand(2500)));
+    addLog(`↩ ${p.name}「ちがうが？」→ ${f.name} にはね返した！`);
+  }else{
+    addLog(`🛡 ${p.name}「${CARD[c.t].w}」→ 無効！`);
+    G.pending=null; afterAction();
+  }
+  return true;
+}
+function resolvePending(){
+  const pd=G.pending; if(!pd) return; G.pending=null;
+  const f=byId(pd.from), t=byId(pd.to);
+  if(pd.kind==='ano'){
+    if(t.hand.length){ const c=t.hand.splice(rand(t.hand.length),1)[0]; f.hand.push(c); addLog(`🫳 ${f.name} が ${t.name} の手札を1枚うばった`); fx({k:'steal',pid:t.id}); }
+    else addLog(`🫳 ${t.name} の手札は空っぽだった…`);
+  }else if(pd.kind==='kore'){
+    t.skip=(t.skip||0)+1; addLog(`💤 ${t.name} は次の番お休み`);
+  }else damage(t,pd.kind==='combo'?2:1);
+  afterAction();
+}
+function damage(t,dmg){
+  t.hp=Math.max(0,t.hp-dmg); addLog(`💥 ${t.name} にメンタル${dmg}ダメージ！（残り${t.hp}）`);
+  fx({k:'hit',pid:t.id,dmg});
+  if(t.hp<=0){ t.alive=false; G.discard.push(...t.hand); t.hand=[]; addLog(`😵 ${t.name} 脱落…`); fx({k:'out',pid:t.id}); }
+}
+function afterAction(){
+  const alive=G.players.filter(p=>p.alive);
+  if(alive.length<=1){ G.phase='over'; G.winner=alive[0]?.id||null; G.pending=null; addLog(`🏆 ${alive[0]?.name||'なし'} の勝ち！`); return; }
+  G.turnDeadline=Math.max(G.turnDeadline,Date.now()+15000);
+  if(!cur().alive) nextTurn();
+}
+
+// ---- CPU ----
+function botReact(p){
+  const pd=G.pending; if(!pd||pd.to!==p.id) return;
+  const has=t=>p.hand.find(c=>c.t===t);
+  const dmgKind=pd.kind!=='ano'&&pd.kind!=='kore';
+  let pick=null;
+  if(dmgKind){
+    if(has('chigau')&&Math.random()<.85) pick=has('chigau');
+    else if(has('shinai')) pick=has('shinai');
+    else if(has('chigau')) pick=has('chigau');
+    else if(has('yamete')&&(p.hp<=2||pd.kind==='combo'||Math.random()<.5)) pick=has('yamete');
+  }else if(p.hand.length>=2&&Math.random()<.55){
+    pick=has('shinai')||has('chigau');
+  }
+  if(pick) react(p,pick.id); else resolvePending();
+}
+function botTurnStep(p){
+  if(cur()!==p||G.pending||G.phase!=='play') return;
+  const has=t=>p.hand.find(c=>c.t===t);
+  const opps=G.players.filter(o=>o.alive&&o!==p);
+  const weak=[...opps].sort((a,b)=>a.hp-b.hp||rand(3)-1)[0];
+  const rich=[...opps].sort((a,b)=>b.hand.length-a.hand.length)[0];
+  const tgt=()=>Math.random()<.65?weak:opps[rand(opps.length)];
+  let ok=false;
+  if(G.acts<4){
+    if(p.hp<=2&&has('yamete')) ok=playCards(p,[has('yamete').id]);
+    else if(has('moddo')&&(opps.some(o=>o.hp<=1)||Math.random()<.35)) ok=playCards(p,[has('moddo').id]);
+    else if(has('kore')&&Math.random()<.5) ok=playCards(p,[has('kore').id],tgt().id);
+    else if(has('mite')&&has('ano')&&Math.random()<.5) ok=playCards(p,[has('mite').id,has('ano').id],tgt().id);
+    else if(has('mite')&&Math.random()<.9) ok=playCards(p,[has('mite').id],tgt().id);
+    else if(has('ano')&&Math.random()<.7) ok=playCards(p,[has('ano').id],rich.id);
+  }
+  if(!ok) endTurn();
+}
+function scheduleBots(){
+  clearTimeout(botTimer);
+  if(!G||G.phase!=='play') return;
+  if(G.pending){
+    const t=byId(G.pending.to);
+    if(isAuto(t)) botTimer=setTimeout(()=>{botReact(t);sync();},900+rand(1300));
+  }else{
+    const p=cur();
+    if(isAuto(p)) botTimer=setTimeout(()=>{botTurnStep(p);sync();},1000+rand(800));
+  }
+}
+setInterval(()=>{
+  if(!isHost||!G||G.phase!=='play') return;
+  const now=Date.now();
+  if(G.pending&&now>G.pending.deadline){ resolvePending(); sync(); }
+  else if(!G.pending&&now>G.turnDeadline&&!isAuto(cur())){ addLog(`⏰ ${cur().name} 時間切れ`); endTurn(); sync(); }
+},250);
+
+// ---- 入力処理 ----
+function handleIntent(pid,m){
+  const p=byId(pid); if(!p||!m) return;
+  const host=pid===myPid;
+  switch(m.a){
+    case 'stamp': if(STAMPS.includes(m.s)) fx({k:'say',pid,s:m.s,stamp:true}); return;
+    case 'addbot': if(host&&G.phase!=='play'&&G.players.length<6){ const names=['CPUたろう','CPUはなこ','CPUじろう','CPUさくら','CPUごろう']; G.players.push({id:'b'+(++botSeq),name:names[(botSeq-1)%names.length],bot:true,hand:[],hp:MAXHP,alive:true}); } break;
+    case 'rmbot': if(host&&G.phase!=='play'){ const i=G.players.map(x=>x.bot).lastIndexOf(true); if(i>=0) G.players.splice(i,1);} break;
+    case 'start': if(host&&G.phase!=='play') startGame(); break;
+    case 'lobby': if(host&&G.phase==='over'){ G.phase='lobby'; G.players=G.players.filter(isConn); } break;
+    case 'play': playCards(p,m.cards,m.target); break;
+    case 'react': react(p,m.card); break;
+    case 'accept': if(G.pending&&G.pending.to===pid) resolvePending(); break;
+    case 'end': if(G.phase==='play'&&cur()===p&&!G.pending) endTurn(); break;
+  }
+  sync();
+}
+function viewFor(pid){
+  const me=byId(pid); const now=Date.now();
+  return {phase:G.phase, me:pid, host:myPid, code:roomCode,
+    players:G.players.map(p=>({id:p.id,name:p.name,hp:p.hp,skip:p.skip||0,n:p.hand.length,alive:p.alive,bot:!!p.bot,conn:isConn(p)})),
+    hand:me?me.hand:[], turn:G.phase==='play'?cur()?.id:null,
+    pending:G.pending?{kind:G.pending.kind,from:G.pending.from,to:G.pending.to,chain:G.pending.chain,left:G.pending.deadline-now}:null,
+    turnLeft:G.turnDeadline-now, log:G.log.slice(-40), deck:G.deck.length, top:G.discard.length?G.discard[G.discard.length-1].t:null, winner:G.winner};
+}
+function sync(){
+  if(!isHost) return;
+  for(const pid in conns){ try{ conns[pid].send({type:'state',v:viewFor(pid)}); }catch(e){} }
+  onState(viewFor(myPid));
+  scheduleBots();
+}
+function fx(e){
+  for(const pid in conns){ try{ conns[pid].send({type:'fx',e}); }catch(e){} }
+  showFx(e);
+}
+
+// ================= 接続 =================
+function genCode(){ const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<4;i++) c+=s[rand(s.length)]; return c; }
+function getName(){
+  const n=$('nameIn').value.trim().slice(0,10);
+  if(!n){ $('titleErr').textContent='なまえを入力してね'; return null; }
+  localStorage.setItem('goroku-name',n); return n;
+}
+function setupHost(name,online){
+  isHost=true; G=freshG(); myName=name;
+  myPid='p'+(++pidSeq);
+  G.players.push({id:myPid,name,hand:[],hp:MAXHP,alive:true});
+  if(!online){ roomCode='SOLO'; for(let i=0;i<3;i++) handleIntent(myPid,{a:'addbot'}); handleIntent(myPid,{a:'start'}); return; }
+  if(typeof Peer==='undefined'){ $('titleErr').textContent='通信ライブラリを読み込めませんでした（オフライン？）'; isHost=false; return; }
+  $('titleErr').textContent='ルームを作成中…';
+  const tryOpen=()=>{
+    roomCode=genCode();
+    peer=new Peer(PREFIX+roomCode);
+    peer.on('open',()=>{ $('titleErr').textContent=''; sync(); });
+    peer.on('error',e=>{
+      if(e.type==='unavailable-id'){ peer.destroy(); tryOpen(); }
+      else if(G.phase==='lobby'&&!peer.open){ $('titleErr').textContent='接続エラー: '+e.type; }
+    });
+    peer.on('disconnected',()=>{ try{peer.reconnect();}catch(e){} });
+    peer.on('connection',c=>{
+      c.on('data',m=>{
+        if(m&&m.a==='join'){
+          let nm=String(m.name||'ななし').slice(0,10);
+          let p=G.players.find(x=>!x.bot&&x.id!==myPid&&x.name===nm&&!conns[x.id]&&G.phase!=='lobby');
+          if(!p){
+            if(G.phase!=='lobby'){ c.send({type:'err',msg:'ゲーム中のため参加できません'}); return; }
+            if(G.players.length>=6){ c.send({type:'err',msg:'満員です（最大6人）'}); return; }
+            while(G.players.some(x=>x.name===nm)) nm+='＊';
+            p={id:'p'+(++pidSeq),name:nm,hand:[],hp:MAXHP,alive:true}; G.players.push(p); addLog(`👋 ${nm} が参加`);
+          }else addLog(`🔌 ${nm} が再接続`);
+          conns[p.id]=c; c.pid=p.id; sync(); return;
+        }
+        if(c.pid&&conns[c.pid]===c) handleIntent(c.pid,m);
+      });
+      c.on('close',()=>{
+        if(c.pid&&conns[c.pid]===c){
+          delete conns[c.pid]; const p=byId(c.pid);
+          if(G.phase==='lobby'){ G.players=G.players.filter(x=>x.id!==c.pid); }
+          else if(p) addLog(`⚠ ${p.name} が切断（CPUが代わりに操作）`);
+          sync();
+        }
+      });
+    });
+  };
+  tryOpen();
+}
+function setupGuest(name,code){
+  if(typeof Peer==='undefined'){ $('titleErr').textContent='通信ライブラリを読み込めませんでした'; return; }
+  isHost=false; myName=name; roomCode=code;
+  $('titleErr').textContent='接続中…';
+  peer=new Peer();
+  peer.on('open',()=>{
+    conn=peer.connect(PREFIX+code,{reliable:true});
+    conn.on('open',()=>conn.send({a:'join',name}));
+    conn.on('data',m=>{
+      if(m.type==='state'){ $('titleErr').textContent=''; myPid=m.v.me; onState(m.v); }
+      else if(m.type==='fx') showFx(m.e);
+      else if(m.type==='err'){ $('titleErr').textContent=m.msg; show('title'); }
+    });
+    conn.on('close',()=>{ alert('ホストとの接続が切れました。同じなまえで入り直すと復帰できます。'); location.reload(); });
+  });
+  peer.on('error',e=>{ $('titleErr').textContent= e.type==='peer-unavailable'?'ルームが見つかりません':'接続エラー: '+e.type; });
+}
+function send(m){ if(isHost) handleIntent(myPid,m); else if(conn&&conn.open) conn.send(m); }
+
+// ================= 描画 =================
+function show(id){ ['title','lobby','game'].forEach(s=>$(s).classList.toggle('on',s===id)); }
+function cardHTML(t,extra='',id=''){
+  const c=CARD[t];
+  return `<div class="card ${extra}" ${id!==''?`data-id="${id}"`:''} style="background:${c.c}"><span class="tag">${c.tag}</span><div class="w${c.short?' long':''}">${c.short||c.w}</div><div class="d">${c.desc}</div></div>`;
+}
+const hearts=hp=>'❤'.repeat(Math.max(0,hp))+'♡'.repeat(Math.max(0,MAXHP-hp));
+const pname=id=>(V?.players.find(p=>p.id===id)||{}).name||'?';
+
+function onState(v){
+  V=v;
+  localPendDeadline=v.pending?Date.now()+v.pending.left:0;
+  localTurnDeadline=Date.now()+v.turnLeft;
+  if(v.phase==='lobby'){ show('lobby'); renderLobby(); $('overOv').classList.remove('on'); $('reactOv').classList.remove('on'); return; }
+  show('game'); renderGame();
+}
+function renderLobby(){
+  $('lobbyCode').textContent=V.code||'----';
+  $('plist').innerHTML=V.players.map(p=>`<div><span>${esc(p.name)}${p.id===V.host?' 👑':''}${p.id===V.me?'（あなた）':''}</span><span class="small">${p.bot?'CPU':''}</span></div>`).join('');
+  const h=V.me===V.host;
+  $('hostCtl').style.display=h?'':'none'; $('guestWait').style.display=h?'none':'';
+  $('btnStart').disabled=V.players.length<2;
+  $('btnStart').textContent=V.players.length<2?'あと1人以上必要':'ゲーム開始（'+V.players.length+'人）';
+}
+function renderGame(){
+  const me=V.players.find(p=>p.id===V.me);
+  sel=new Set([...sel].filter(id=>V.hand.some(c=>c.id===id)));
+  const myTurn=V.phase==='play'&&V.turn===V.me&&!V.pending&&me?.alive;
+  if(!myTurn) sel.clear();
+  const mode=selMode(me,myTurn);
+  $('roomInfo').textContent=(V.code==='SOLO'?'練習モード':'ルーム '+V.code)+' ／ '+V.players.length+'人';
+  // opponents
+  const meIdx=V.players.findIndex(p=>p.id===V.me);
+  const order=V.players.slice(meIdx+1).concat(V.players.slice(0,meIdx));
+  $('opps').innerHTML=order.map(p=>{
+    const cls=['seat']; if(p.id===V.turn) cls.push('turn'); if(!p.alive) cls.push('dead'); if(mode==='target'&&p.alive) cls.push('targetable');
+    return `<div class="${cls.join(' ')}" id="seat-${p.id}" data-pid="${p.id}"><div class="nm">${esc(p.name)}${p.id===V.host?' 👑':''}</div><div class="hearts">${hearts(p.hp)}</div><div class="small">手札 ${p.n}枚${p.bot?' ・CPU':''}${p.skip?' ・💤次休み':''}${!p.conn?' ・切断中':''}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.seat.targetable').forEach(el=>el.onclick=()=>{ send({a:'play',cards:[...sel],target:el.dataset.pid}); sel.clear(); });
+  // center
+  $('deckEl').innerHTML='山札<br>'+V.deck;
+  $('discardEl').innerHTML=V.top?cardHTML(V.top,'mini'):'<div class="deck" style="background:#dee2e6;color:#868e96">捨て札</div>';
+  const lg=$('log'); lg.innerHTML=V.log.map(s=>`<div>${esc(s)}</div>`).join(''); lg.scrollTop=lg.scrollHeight;
+  let b='';
+  if(V.pending){ const pd=V.pending; b=`${esc(pname(pd.from))} → ${esc(pname(pd.to))}「${wordOf(pd.kind)}」<br><span class="small">${pd.to===V.me?'あなたの反応待ち！':esc(pname(pd.to))+' の反応待ち…'}</span>`; }
+  else if(V.phase==='play') b= V.turn===V.me?'あなたの番です！':`${esc(pname(V.turn))} の番`;
+  $('banner').innerHTML=b;
+  // me
+  $('me').classList.toggle('turn',V.turn===V.me);
+  $('meinfo').innerHTML=`<div><b>${esc(me?.name||'')}</b>（あなた）<span class="hearts">${hearts(me?.hp||0)}</span>${me&&!me.alive?' <b style="color:#e03131">脱落</b>':''}${me?.skip?' <span class="small">💤次の番お休み</span>':''}</div><div class="small">手札 ${V.hand.length}／上限${HAND_MAX}</div>`;
+  $('hand').innerHTML=V.hand.map(c=>cardHTML(c.t,sel.has(c.id)?'sel':'',c.id)).join('')||'<div class="small" style="align-self:center">手札なし</div>';
+  document.querySelectorAll('#hand .card').forEach(el=>el.onclick=()=>{
+    if(!myTurn) return; const id=+el.dataset.id;
+    if(sel.has(id)) sel.delete(id); else { if(sel.size>=2) sel.clear(); sel.add(id); }
+    renderGame();
+  });
+  const hints={none:'カードを選んでね（「あの？」＋「みてみて～」の同時出しでコンボ！）',target:'↑ 攻撃する相手をタップ！',heal:'「やめてね」でメンタル回復できます',moddo:'必殺！他の全員に1ダメージ。そのかわり次の番はお休み',full:'メンタル満タンなので回復できません',invalid:'その組み合わせは出せません',react:'反応カードは攻撃されたときに使います'};
+  $('hint').textContent= myTurn?hints[mode]: (me&&!me.alive?'観戦中…':'');
+  let act='';
+  if(myTurn){
+    if(mode==='heal') act+=`<button class="pri" id="btnHeal">回復する</button>`;
+    if(mode==='moddo') act+=`<button class="pri" id="btnHeal">必殺をつかう！</button>`;
+    if(sel.size) act+=`<button class="sub" id="btnClear">選択解除</button>`;
+    act+=`<button id="btnEnd">ターン終了</button>`;
+  }
+  $('actions').innerHTML=act;
+  if($('btnHeal')) $('btnHeal').onclick=()=>{ send({a:'play',cards:[...sel]}); sel.clear(); };
+  if($('btnClear')) $('btnClear').onclick=()=>{ sel.clear(); renderGame(); };
+  if($('btnEnd')) $('btnEnd').onclick=()=>{ sel.clear(); send({a:'end'}); };
+  $('turnTimer').style.display=myTurn?'':'none';
+  renderReact(); renderOver();
+}
+function selMode(me,myTurn){
+  if(!myTurn||!sel.size) return 'none';
+  const ts=[...sel].map(id=>V.hand.find(c=>c.id===id).t).sort().join('+');
+  if(ts==='mite'||ts==='ano'||ts==='ano+mite') return 'target';
+  if(ts==='kore') return 'target';
+  if(ts==='moddo') return 'moddo';
+  if(ts==='yamete') return me.hp<MAXHP?'heal':'full';
+  if(sel.size===1) return 'react';
+  return 'invalid';
+}
+function renderReact(){
+  const pd=V.pending, ov=$('reactOv');
+  if(!pd||pd.to!==V.me||V.phase!=='play'){ ov.classList.remove('on'); return; }
+  const eff=pd.kind==='ano'?'手札を1枚うばわれる':pd.kind==='kore'?'次の番がお休みになる':pd.kind==='combo'?'メンタル2ダメージ':'メンタル1ダメージ';
+  const counts={}; V.hand.forEach(c=>{ if(CARD[c.t].kind==='re') (counts[c.t]=counts[c.t]||[]).push(c.id); });
+  let btns=Object.keys(counts).map(t=>`<button style="background:${CARD[t].c}" data-card="${counts[t][0]}">「${CARD[t].w}」<span class="small" style="color:#fff">×${counts[t].length}　${t==='chigau'?'はね返す':'無効にする'}</span></button>`).join('');
+  btns+=`<button class="sub" data-accept="1">受ける（${eff}）</button>`;
+  $('reactPanel').innerHTML=`<div class="small">${pd.chain>1?'はね返ってきた！':'攻撃された！'}</div><div class="big">${esc(pname(pd.from))}<br>「${wordOf(pd.kind)}」</div><div>${eff}！ どうする？</div><div class="timer"><i id="reactBar"></i></div><div class="rbtns">${btns}</div>`;
+  $('reactPanel').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    if(b.dataset.accept) send({a:'accept'}); else send({a:'react',card:+b.dataset.card});
+    ov.classList.remove('on');
+  });
+  ov.classList.add('on');
+}
+function renderOver(){
+  const ov=$('overOv');
+  if(V.phase!=='over'){ ov.classList.remove('on'); return; }
+  const win=V.winner===V.me;
+  $('overPanel').innerHTML=`<div class="big">${win?'🏆 かち！':'おしまい'}</div><div style="font-size:20px">${esc(pname(V.winner))} の勝ち！</div><div class="small" style="margin:8px 0">${win?'「ちがうが？」とは言わせない完全勝利':'「やめてね」…'}</div>`+
+    (V.me===V.host?`<div class="row"><button class="pri" id="btnAgain">${V.code==='SOLO'?'もう一度':'もう一度（ロビーへ）'}</button></div>`:`<div class="small">ホストの操作を待っています…</div>`)+
+    `<div class="row"><button class="sub" onclick="location.href=location.pathname">タイトルへ</button></div>`;
+  if($('btnAgain')) $('btnAgain').onclick=()=>send({a:V.code==='SOLO'?'start':'lobby'});
+  ov.classList.add('on');
+}
+setInterval(()=>{
+  if(!V) return; const now=Date.now();
+  const rb=$('reactBar'); if(rb&&V.pending) rb.style.width=Math.max(0,(localPendDeadline-now)/(REACT_SEC*1000)*100)+'%';
+  const tb=$('turnTimer').firstElementChild; tb.style.width=Math.max(0,(localTurnDeadline-now)/(TURN_SEC*1000)*100)+'%';
+},150);
+
+// ================= 演出 =================
+let actx=null;
+function beep(f=600,d=.08,type='sine'){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.value=f;g.gain.setValueAtTime(.12,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d);
+    o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+d);}catch(e){}
+}
+function speak(text,pid){
+  if(!voiceOn||!window.speechSynthesis) return;
+  const u=new SpeechSynthesisUtterance(text); u.lang='ja-JP'; u.rate=1.15;
+  const i=V?Math.max(0,V.players.findIndex(p=>p.id===pid)):0; u.pitch=[1,1.5,.7,1.25,.85,1.7][i%6];
+  speechSynthesis.speak(u);
+}
+function seatEl(pid){ return pid===V?.me?$('me'):$('seat-'+pid); }
+function showFx(e){
+  if(!V) return;
+  if(e.k==='say'){
+    const w=wordOf(e.s); const el=seatEl(e.pid);
+    if(el){ const b=document.createElement('div'); b.className='bubble'+(e.stamp?' stamp':'')+(w.length>12?' long':''); b.textContent=w; el.appendChild(b); setTimeout(()=>b.remove(),2200); }
+    if(e.s!=='zzz') speak(w,e.pid);
+    if(!e.stamp){ const f=$('flash'); f.textContent=w; f.classList.toggle('long',w.length>12); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); beep(880,.1,'triangle'); }
+    else beep(1200,.05);
+  }else if(e.k==='hit'){
+    const el=seatEl(e.pid); if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+    beep(160,.25,'square');
+  }else if(e.k==='steal'){ beep(500,.08); setTimeout(()=>beep(350,.1),90); }
+  else if(e.k==='out'){ beep(300,.2,'sawtooth'); setTimeout(()=>beep(200,.35,'sawtooth'),200); }
+}
+
+// ================= UI配線 =================
+$('stamps').innerHTML=STAMPS.map(s=>`<button data-s="${s}">${s==='moddo'?'もっどりんご～～～':CARD[s].w}</button>`).join('');
+let lastStamp=0;
+$('stamps').querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(Date.now()-lastStamp<1500) return; lastStamp=Date.now(); send({a:'stamp',s:b.dataset.s}); });
+$('btnCreate').onclick=()=>{ const n=getName(); if(n) setupHost(n,true); };
+$('btnSolo').onclick=()=>{ const n=getName(); if(n) setupHost(n,false); };
+$('btnJoin').onclick=()=>{ const n=getName(); if(!n) return; const c=$('codeIn').value.trim().toUpperCase(); if(c.length!==4){ $('titleErr').textContent='4文字のルームコードを入力してね'; return; } setupGuest(n,c); };
+$('btnAddBot').onclick=()=>send({a:'addbot'});
+$('btnRmBot').onclick=()=>send({a:'rmbot'});
+$('btnStart').onclick=()=>send({a:'start'});
+$('btnCopy').onclick=()=>{ const url=location.origin+location.pathname+'?room='+roomCode; navigator.clipboard?.writeText(url).then(()=>{$('lobbyErr').textContent='コピーしました！';setTimeout(()=>$('lobbyErr').textContent='',1500);},()=>prompt('このリンクを共有してね',url)); };
+$('btnVoice').onclick=()=>{ voiceOn=!voiceOn; $('btnVoice').textContent=voiceOn?'🔊 声ON':'🔇 声OFF'; if(!voiceOn) speechSynthesis?.cancel(); };
+['btnRules1','btnRules2','btnRules3'].forEach(id=>$(id).onclick=()=>$('rulesOv').classList.add('on'));
+$('btnRulesClose').onclick=()=>$('rulesOv').classList.remove('on');
+$('rulesBody').innerHTML=`
+<p><b>目的：</b>相手のメンタル（❤）を0にして、最後まで残った人の勝ち！ 全員メンタル${MAXHP}・手札${START_HAND}枚でスタート。</p>
+<p><b>自分の番：</b>山札から2枚引いて、攻撃カードを<b>何枚でも</b>順番に出せます。終わったら「ターン終了」。（制限時間${TURN_SEC}秒）</p>
+<p>${cardHTML('mite','mini')}${cardHTML('ano','mini')}<br>「みてみて～」：相手に1ダメージ<br>「あの？」：相手の手札を1枚うばう<br><b>コンボ「あの？みてみて～」</b>：2枚同時に出すと2ダメージ！</p>
+<p>${cardHTML('kore','mini')}${cardHTML('moddo','mini')}<br>「これゆずりんごらしい」：相手を1回休みにする（反応カードで防げる・はね返せる）<br>「もっどりんごゆずりんごゆめのゆずねっとたかた～～～」：<b>必殺</b>。他の全員に1ダメージ（反応できない）。そのかわり自分は次の番がお休み</p>
+<p>${cardHTML('shinai','mini')}${cardHTML('chigau','mini')}${cardHTML('yamete','mini')}<br><b>反応カード</b>は攻撃されたとき（${REACT_SEC}秒以内）に使えます。<br>「しないが？」：無効にする<br>「ちがうが？」：そのまま相手にはね返す（はね返された側もまた反応できる！）<br>「やめてね」：無効にする。自分の番に出すとメンタル1回復</p>
+<p>手札の上限は${HAND_MAX}枚。下の語録ボタンはいつでも押せるスタンプです（効果なし）。</p>
+<p class="small">切断した人は同じなまえで入り直すと復帰できます。切断中はCPUが代わりに操作します。</p>`;
+$('nameIn').value=localStorage.getItem('goroku-name')||'';
+const qr=new URLSearchParams(location.search).get('room'); if(qr) $('codeIn').value=qr.toUpperCase();
+</script>
+</body>
+</html>
